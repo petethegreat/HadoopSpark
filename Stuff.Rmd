@@ -1,0 +1,87 @@
+---
+title: "Hadoop/PySpark notes"
+output:
+  html_document:
+    theme: "cerulean" 
+    mathjax: "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"
+  pdf_document:
+    toc: true
+---
+
+## Introduction
+I wanted to figure out how to do a few things in PySpark. I have a single node Hadoop/PySpark "cluster" running on a raspberry Pi, so I'm not going to be crunching a tonne of data. I wanted to try doing the following:
+
+  * Interact with with an RDBMS using spark SQL
+  * Run a MapReduce task on some data
+  * do something with MLlib
+
+
+## SQL stuff
+
+Query a database through spark. Have a small database containing information on things related to 4th edition Dungeons and Dragons. The following script quickly queries the db and prints some info on fighter powers.
+
+```{python, eval=FALSE}
+#!/usr/local/spark/spark-2.2.0-bin-hadoop2.7/bin/pyspark
+
+# this shebang doesn't work, call ${SPARK_HOME}/bin/spark-submit file.py
+
+# setup Spark configuration
+from pyspark import SparkConf, SparkContext
+conf = SparkConf()
+conf.setMaster("spark://ravage:7077")
+conf.setAppName("My application")
+conf.set("spark.executor.memory", "512m")
+conf.set("sparkHome","/usr/local/spark/spark-2.2.0-bin-hadoop2.7")
+
+# spark sql stuff
+from pyspark.sql import SparkSession
+
+spark = SparkSession \
+    .builder \
+    .appName("pyspark sqlite test") \
+    .config(conf=conf) \
+    .getOrCreate()
+
+# use the jdbc sqlite driver to read our db
+sqliteDF = spark.read.format('jdbc').options(
+    # url='jdbc:sqlite:hdfs://localhost:54310/user/hduser/cleanedDB.db',
+    url='jdbc:sqlite:/home/hduser/cleanedDB.db',
+    driver='org.sqlite.JDBC',
+    dbtable='Powers').load()
+
+# query
+
+sqliteDF.select(sqliteDF['classname'],sqliteDF['name'],sqliteDF['level']).filter(sqliteDF['classname'] == 'Fighter').show()
+
+```
+
+This work, and produces the following output:
+
+```
++---------+--------------------+-----+
+|classname|                name|level|
++---------+--------------------+-----+
+|  Fighter|      Dance of Steel|    3|
+|  Fighter|         Shield Slam|    3|
+|  Fighter|       Rain of Blows|    3|
+|  Fighter|         Shield Bash|    1|
+|  Fighter|       Sweeping Blow|    3|
+|  Fighter|       Battering Ram|   17|
+|  Fighter|     Griffon's Wrath|    7|
+|  Fighter|       Crushing Blow|    3|
+|  Fighter|Armor-Piercing Th...|    3|
+|  Fighter|         Not So Fast|    7|
+|  Fighter|             Trip Up|    7|
+|  Fighter|              Cleave|    1|
+|  Fighter|      Reaping Strike|    1|
+|  Fighter|        Tide of Iron|    1|
+|  Fighter|      Spinning Sweep|    1|
+|  Fighter|Steel Serpent Strike|    1|
+|  Fighter|      Passing Attack|    1|
+|  Fighter|        Sudden Surge|    7|
+|  Fighter|        Iron Bulwark|    7|
+|  Fighter|       Anvil of Doom|   13|
++---------+--------------------+-----+
+```
+
+
