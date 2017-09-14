@@ -190,6 +190,48 @@ sqliteDF.select(sqliteDF['classname'],sqliteDF['name'],sqliteDF['level']).filter
 |  Fighter|       Anvil of Doom|   13|
 +---------+--------------------+-----+</code></pre>
 </div>
+<div id="mapreduce" class="section level2">
+<h2>MapReduce</h2>
+<p>There are a lot of different powers for each combination of class and level. The details of each power are recorded in the descriptionRaw column, which contains html. The description for “Come and Get it” is given below:</p>
+<pre><code>&lt;div id=&quot;detail&quot;&gt;
+        
+        &lt;h1 class=&quot;encounterpower&quot;&gt;&lt;span class=&quot;level&quot;&gt;Fighter Attack 7&lt;\span&gt;Come and Get It&lt;\h1&gt;&lt;p class=&quot;flavor&quot;&gt;&lt;i&gt;You brandish your weapon and call out to your foes, luring them close through their overconfidence, and then deliver a spinning strike against them all.&lt;\i&gt;&lt;\p&gt;&lt;p class=&quot;powerstat&quot;&gt;&lt;b&gt;Encounter&lt;\b&gt;&amp;nbsp;&amp;nbsp; &lt;img src=&quot;images/bullet.gif&quot; alt=&quot;&quot;/&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp; &lt;b&gt;Martial&lt;\b&gt;, &lt;b&gt;Weapon&lt;\b&gt;&lt;br/&gt;&lt;b&gt;Standard Action&lt;\b&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&lt;b&gt;Close&lt;\b&gt; burst 3&lt;\p&gt;&lt;p class=&quot;powerstat&quot;&gt;&lt;b&gt;Target&lt;\b&gt;: Each enemy you can see in the burst&lt;\p&gt;&lt;p class=&quot;powerstat&quot;&gt;&lt;b&gt;Attack&lt;\b&gt;: Strength vs. Will&lt;\p&gt;&lt;p class=&quot;flavor&quot;&gt;&lt;b&gt;Hit&lt;\b&gt;: You pull the target up to 2 squares, but only if it can end the pull adjacent to you. If the target is adjacent to you after the pull, it takes 1[W] damage.&lt;\p&gt;&lt;br/&gt;&lt;p class=&quot;publishedIn&quot;&gt;Published in &lt;a href=&quot;http://www.wizards.com/default.asp?x=products/dndacc/217367200&quot; target=&quot;_new&quot;&gt;Player's Handbook&lt;\a&gt;, page(s) 80, &lt;a href=&quot;http://www.wizards.com/dnd&quot; target=&quot;_new&quot;&gt;Class Compendium&lt;\a&gt;.&lt;\p&gt;</code></pre>
+This was scraped rather hastily when the database was created. Tags end with backslashes rather than foreslashes. Will need to clean it up first, and then use an html parser to extract information. Each power has keywords that indicate it’s properties, these are contained in the ‘’’
+<p>
+<p>‘’’ block with class “powerstat” following the flavortext. The power above has the keywords, martial, weapon, standard action, and close burst 3.</p>
+<p>The script below cleans and parses our initial “html”, and prints the keywords (text from the first element following a p element with class “flavor”)</p>
+<pre class="python"><code>
+import re
+from bs4 import BeautifulSoup
+# clean borked tags, remove nbsp, and bold/break/image tags
+def clean(input):
+    output = re.sub(r'&amp;nbsp;','',input)
+    output = re.sub(r'&lt;img[^&gt;]+&gt;','',output)
+    output = re.sub(r'&lt;br/&gt;',' ',output)
+    output = re.sub(r'&lt;\\?b&gt;',' ',output)
+    output = re.sub(r'&lt;\\(?P&lt;tagname&gt;[a-z]*)&gt;','&lt;/\g&lt;tagname&gt;&gt;',output)
+    output = re.sub(r'\s+',' ',output)
+    return(output)
+
+# load our &quot;test&quot; power
+filename = 'testPower.txt'
+content =  open(filename,'r').read()
+content = clean(content)
+# parse cleaned html
+html = BeautifulSoup(content,'html.parser')
+# get the element following (next_sibling) the first p element with class &quot;flavor&quot;
+keywordsTag = html.find_all(name='p',class_='flavor')[0].next_sibling
+
+# clean up the keywords a bit
+keywords = re.sub(',','',keywordsTag.text)
+keywords = re.sub('^ | $ ','',keywords)
+keywords = re.sub('\s+',' ',keywords)
+
+print(keywords)</code></pre>
+<p>Which yields:</p>
+<pre><code>Encounter Martial Weapon Standard Action Close burst 3</code></pre>
+<p>We could turn the above code into a function and apply that to the descriptionRaw column in the pyspark dataframe. Instead, we’ll dump out the each power’s name, class, level, and keywords to a (several?) text files, and use mapReduce functionality to aggregate the keyword information by class and level.</p>
+</div>
 
 
 
