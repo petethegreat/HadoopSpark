@@ -86,31 +86,39 @@ This work, and produces the following output:
 
 ## MapReduce
 
+#### Power Descriptions
 There are a lot of different powers for each combination of class and level. The details of each power are recorded in the descriptionRaw column, which contains html. The description for "Come and Get it" is given below:
 
 ```
-<div id="detail">
-        
-        <h1 class="encounterpower"><span class="level">Fighter Attack 7<\span>Come and Get It<\h1><p class="flavor"><i>You brandish your weapon and call out to your foes, luring them close through their overconfidence, and then deliver a spinning strike against them all.<\i><\p><p class="powerstat"><b>Encounter<\b>&nbsp;&nbsp; <img src="images/bullet.gif" alt=""/>&nbsp;&nbsp;&nbsp;&nbsp; <b>Martial<\b>, <b>Weapon<\b><br/><b>Standard Action<\b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>Close<\b> burst 3<\p><p class="powerstat"><b>Target<\b>: Each enemy you can see in the burst<\p><p class="powerstat"><b>Attack<\b>: Strength vs. Will<\p><p class="flavor"><b>Hit<\b>: You pull the target up to 2 squares, but only if it can end the pull adjacent to you. If the target is adjacent to you after the pull, it takes 1[W] damage.<\p><br/><p class="publishedIn">Published in <a href="http://www.wizards.com/default.asp?x=products/dndacc/217367200" target="_new">Player's Handbook<\a>, page(s) 80, <a href="http://www.wizards.com/dnd" target="_new">Class Compendium<\a>.<\p>
+<div id="detail"> 
+<h1 class="encounterpower"> Come and Get It</h1>
+<p class="flavor"><i>You brandish your weapon and call out to your foes, luring them close through their overconfidence, and then deliver a spinning strike against them all.</i></p>
+<p class="powerstat"><b>Encounter</b>  <b>Martial</b>, <b>Weapon</b><br/>
+<b>Standard Action</b> <b>Close</b> burst 3</p>
+<p class="powerstat"><b>Target</b>: Each enemy you can see in the burst</p>
+<p class="powerstat"><b>Attack</b>: Strength vs. Will</p>
+<p class="flavor"><b>Hit</b>: You pull the target up to 2 squares, but only if it can end the pull adjacent to you. If the target is adjacent to you after the pull, it takes 1[W] damage.</p><br/>
+
+<p class="publishedIn">Published in <a href="http://www.wizards.com/default.asp?x=products/dndacc/217367200" target="_new">Player's Handbook</a>, page(s) 80, <a href="http://www.wizards.com/dnd" target="_new">Class Compendium</a>.</p> </div>
 ```
 
-This was scraped rather hastily when the database was created. Tags end with backslashes rather than foreslashes. Will need to clean it up first, and then use an html parser to extract information. Each power has keywords that indicate it's properties, these are contained in the '''<p>''' block with class "powerstat" following the flavortext. The power above has the keywords, martial, weapon, standard action, and close burst 3. 
+Will want to use an html parser to extract the keyword information. Each power has keywords that indicate its properties, these are contained in the '''<p>''' block with class "powerstat" following the flavortext. The power above has the keywords, martial, weapon, standard action, and close burst 3. 
 
-The script below cleans and parses our initial "html", and prints the keywords (text from the first element following a p element with class "flavor")
+#### Correcting the HTML
+The script below cleans and parses our initial html, and prints the keywords 
 
 
 ```{python, eval=FALSE}
+#!/usr/bin/env python
 
 import re
+
 from bs4 import BeautifulSoup
-# clean borked tags, remove nbsp, and bold/break/image tags
+# our cleandb has the html pretty tidy, really just want to strip out the <b>, <i>, and <br/> tags
 def clean(input):
-    output = re.sub(r'&nbsp;','',input)
-    output = re.sub(r'<img[^>]+>','',output)
+    output = input
     output = re.sub(r'<br/>',' ',output)
-    output = re.sub(r'<\\?b>',' ',output)
-    output = re.sub(r'<\\(?P<tagname>[a-z]*)>','</\g<tagname>>',output)
-    output = re.sub(r'\s+',' ',output)
+    output = re.sub(r'</?[bi]>','',output)
     return(output)
 
 # load our "test" power
@@ -119,20 +127,106 @@ content =  open(filename,'r').read()
 content = clean(content)
 # parse cleaned html
 html = BeautifulSoup(content,'html.parser')
-# get the element following (next_sibling) the first p element with class "flavor"
-keywordsTag = html.find_all(name='p',class_='flavor')[0].next_sibling
+# first p element with class "powerstat"
+keywordsTag = html.find_all(name='p',class_='powerstat')[0]
 
-# clean up the keywords a bit
-keywords = re.sub(',','',keywordsTag.text)
+# # clean up the keywords a bit
+keywords = re.sub(',','',keywordsTag.text.lower())
 keywords = re.sub('^ | $ ','',keywords)
 keywords = re.sub('\s+',' ',keywords)
 
 print(keywords)
+
 ```
 Which yields:
 ```
-Encounter Martial Weapon Standard Action Close burst 3
+encounter martial weapon standard action close burst 3
 ```
 
 We could turn the above code into a function and apply that to the descriptionRaw column in the pyspark dataframe. Instead, we'll dump out the each power's name, class, level, and keywords to a (several?) text files, and use mapReduce functionality to aggregate the keyword information by class and level.
+
+#### Dumping Keywords
+
+The following script dumps all the keywords out to a text file. I'm interested in keywords by class and level, so construct a key from this information.
+
+```{python, eval=FALSE}
+#!/usr/bin/env python
+
+import sqlite3
+import re,sys
+from bs4 import BeautifulSoup
+
+# get the keywords from the html
+def getKeywords(descRaw):
+    content = re.sub(r'<br/>',' ',descRaw)
+    content = re.sub(r'</?[bi]>','',content)
+    html = BeautifulSoup(content,'html.parser')
+    keywordsTag = html.find_all(name='p',class_='powerstat')[0]
+    keywords = re.sub(',','',keywordsTag.text.lower())
+    keywords = re.sub('^ | $ ','',keywords)
+    keywords = re.sub('\s+',' ',keywords)
+    return(keywords)
+
+# filenames
+cleanDBname = './cleanedDB.db'
+outfileName = './powerKeywords.txt'
+
+# connect to DB
+cleanConn = sqlite3.connect(cleanDBname)
+cleanConn.row_factory = sqlite3.Row
+cleancur = cleanConn.cursor()
+
+# query
+cleanquery= 'SELECT classname,level,descriptionRaw FROM Powers'
+cleancur.execute(cleanquery)
+
+# hold the output here, then write it
+# db is small, so memory won't be an issue, otherwise we could write each line as we retreive its row
+lines = []
+
+# loop over query results (rows)
+for therow in cleancur:
+    keywords = getKeywords(therow['descriptionRaw'])
+    # print('id = {id:5}, name = {name}, keywords = {keywords}'.format(id=therow['id'],name=therow['name'],keywords=keywords))
+    
+    # Some powers don't have a valid level associated with them
+    # (and the db contains garbage level values)
+    try:
+        levelint = int(therow['level'])
+    except ValueError:
+        continue
+
+    lines.append('{classname}_{level} {keywords}\n'.format(classname=therow['classname'],level=therow['level'],keywords=keywords))
+cleancur.close()
+
+
+try:
+    with open(outfileName,'w') as outfile:
+        for line in lines:
+            outfile.write(line)
+except IOError:
+    print('Error, could not open {outfilename} for writing'.format(outfilename=outfileName))
+    sys.exit()
+
+```
+
+This produces the following:
+
+```
+Warlord_6 daily martial stance minor action personal 
+Paladin_10 encounter divine minor action ranged 5
+Wizard_6 daily arcane move action personal 
+Warlock_13 encounter arcane implement thunder standard action ranged 10
+Wizard_15 daily arcane evocation fire implement poison standard action close blast 5
+Ranger_16 daily martial stance minor action personal 
+Druid_10 daily primal zone minor action close burst 3
+Ranger_15 daily martial weapon standard action melee weapon
+Cleric_9 daily conjuration divine implement standard action area wall 5 within 10 squares
+...
+```
+
+
+### MapReduce
+
+Now have all the keyword info in a text file. Will copy this into hadoops dfs then feed it to spark and do some mapreducing
 
