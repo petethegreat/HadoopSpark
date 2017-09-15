@@ -102,10 +102,10 @@ There are a lot of different powers for each combination of class and level. The
 <p class="publishedIn">Published in <a href="http://www.wizards.com/default.asp?x=products/dndacc/217367200" target="_new">Player's Handbook</a>, page(s) 80, <a href="http://www.wizards.com/dnd" target="_new">Class Compendium</a>.</p> </div>
 ```
 
-Will want to use an html parser to extract the keyword information. Each power has keywords that indicate its properties, these are contained in the '''<p>''' block with class "powerstat" following the flavortext. The power above has the keywords, martial, weapon, standard action, and close burst 3. 
+Will want to use an html parser to extract the keyword information. Each power has keywords that indicate its properties, these are contained in the ```<p>``` block with class "powerstat" following the flavortext. The power above has the keywords, martial, weapon, standard action, and close burst 3. 
 
-#### Correcting the HTML
-The script below cleans and parses our initial html, and prints the keywords 
+#### Extracting Keywords
+The script below cleans and parses the initial html for our test power, and prints the keywords 
 
 
 ```{python, eval=FALSE}
@@ -143,11 +143,11 @@ Which yields:
 encounter martial weapon standard action close burst 3
 ```
 
-We could turn the above code into a function and apply that to the descriptionRaw column in the pyspark dataframe. Instead, we'll dump out the each power's name, class, level, and keywords to a (several?) text files, and use mapReduce functionality to aggregate the keyword information by class and level.
+We could turn the above code into a function and apply that to the descriptionRaw column in the pyspark dataframe. Instead, we'll dump out the each power's class, level, and keywords to a (several?) text files, and use mapReduce functionality to aggregate the keyword information by class and level.
 
 #### Dumping Keywords
 
-The following script dumps all the keywords out to a text file. I'm interested in keywords by class and level, so construct a key from this information.
+The following script dumps all the keywords out to a text file, using the python DB-API for sqlite3. I'm interested in keywords by class and level, so construct a key from this information.
 
 ```{python, eval=FALSE}
 #!/usr/bin/env python
