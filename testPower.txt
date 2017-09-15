@@ -1,0 +1,10 @@
+<div id="detail"> 
+<h1 class="encounterpower"> Come and Get It</h1>
+<p class="flavor"><i>You brandish your weapon and call out to your foes, luring them close through their overconfidence, and then deliver a spinning strike against them all.</i></p>
+<p class="powerstat"><b>Encounter</b>  <b>Martial</b>, <b>Weapon</b><br/>
+<b>Standard Action</b> <b>Close</b> burst 3</p>
+<p class="powerstat"><b>Target</b>: Each enemy you can see in the burst</p>
+<p class="powerstat"><b>Attack</b>: Strength vs. Will</p>
+<p class="flavor"><b>Hit</b>: You pull the target up to 2 squares, but only if it can end the pull adjacent to you. If the target is adjacent to you after the pull, it takes 1[W] damage.</p><br/>
+
+<p class="publishedIn">Published in <a href="http://www.wizards.com/default.asp?x=products/dndacc/217367200" target="_new">Player's Handbook</a>, page(s) 80, <a href="http://www.wizards.com/dnd" target="_new">Class Compendium</a>.</p> </div>
