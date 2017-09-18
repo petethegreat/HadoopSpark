@@ -235,6 +235,7 @@ Cleric_9 daily conjuration divine implement standard action area wall 5 within 1
 ```
 
 There are 9409 powers in the database. Of these, 646 do not have a well defined level (racial powers, class features, wizard cantrips, etc), leaving 8773 powers for which keywords were extracted.
+
 ### MapReduce
 
 Now have all the keyword info in a text file. Will copy this into hadoops dfs then feed it to spark and do some mapreducing
