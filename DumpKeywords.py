@@ -25,7 +25,7 @@ cleanConn.row_factory = sqlite3.Row
 cleancur = cleanConn.cursor()
 
 # query
-cleanquery= 'SELECT classname,level,descriptionRaw FROM Powers'
+cleanquery= 'SELECT id,classname,level,descriptionRaw FROM Powers'
 cleancur.execute(cleanquery)
 
 # hold the output here, then write it
@@ -34,17 +34,26 @@ lines = []
 
 # loop over query results (rows)
 for therow in cleancur:
-    keywords = getKeywords(therow['descriptionRaw'])
+    keywords = getKeywords(therow['descriptionRaw'].encode('utf-8'))
     # print('id = {id:5}, name = {name}, keywords = {keywords}'.format(id=therow['id'],name=therow['name'],keywords=keywords))
     
     # Some powers don't have a valid level associated with them
-    # (and the db contains garbage level values)
+    # (and the db contains garbage level values, HASHXX - perl related?)
     try:
         levelint = int(therow['level'])
     except ValueError:
         continue
-
-    lines.append('{classname}_{level} {keywords}\n'.format(classname=therow['classname'],level=therow['level'],keywords=keywords))
+    try:
+        lines.append(
+            '{classname}_{level} {keywords}\n'.format(
+                classname=re.sub(r' ','_',therow['classname'].encode('utf-8')),
+                level=therow['level'],
+                keywords=keywords.encode('utf-8')
+                )
+            )
+    except UnicodeEncodeError:
+        print('UnicodeError : powerid = {id}\n'.format(id=therow['id']))
+        sys.exit()
 cleancur.close()
 
 
