@@ -323,8 +323,63 @@ Druid_10 daily primal zone minor action close burst 3
 Ranger_15 daily martial weapon standard action melee weapon
 Cleric_9 daily conjuration divine implement standard action area wall 5 within 10 squares
 ...</code></pre>
-<p>There are 9409 powers in the database. Of these, 646 do not have a well defined level (racial powers, class features, wizard cantrips, etc), leaving 8773 powers for which keywords were extracted. ### MapReduce</p>
-<p>Now have all the keyword info in a text file. Will copy this into hadoops dfs then feed it to spark and do some mapreducing</p>
+<p>There are 9409 powers in the database. Of these, 646 do not have a well defined level (racial powers, class features, wizard cantrips, etc), leaving 8773 powers for which keywords were extracted.</p>
+</div>
+<div id="mapreduce-1" class="section level3">
+<h3>MapReduce</h3>
+<p>Now have all the keyword info in a text file. Will copy this into hadoops dfs then feed it to spark and do some mapreducing. The following script does the mapreduce, and writes the output to a csv file in hdfs.</p>
+<pre class="python"><code>#!/usr/local/spark/spark-2.2.0-bin-hadoop2.7/bin/pyspark
+
+
+from pyspark import SparkConf, SparkContext
+
+def flatMapLines(x):
+    '''
+    Function to map a keyword line into multiple keys
+    append classname_level to the start of each keyword
+    add a &quot;total&quot; keyword, to track the total number of powers for this classname_level
+    return a list of &quot;classname_level,keyword&quot;
+    '''
+    words = x.split(' ')
+    key = words[0]
+    vals = [ key+',total']
+    for kw in words[1:len(words)]:
+        vals.append(key+','+kw)
+    return(vals)
+    
+
+conf = SparkConf()
+conf.setMaster(&quot;spark://ravage:7077&quot;)
+conf.setAppName(&quot;My application&quot;)
+conf.set(&quot;spark.executor.memory&quot;, &quot;512m&quot;)
+conf.set(&quot;sparkHome&quot;,&quot;/usr/local/spark/spark-2.2.0-bin-hadoop2.7&quot;)
+sc = SparkContext(conf = conf)
+
+
+keywordsFile = 'hdfs://localhost:54310/user/hduser/powerKeywords.txt'
+outfile = 'hdfs://localhost:54310/user/hduser/output/powerKeywordCount.txt'
+
+# sc = SparkContext('local','test app')
+
+data = sc.textFile(keywordsFile) # rdd of lines
+
+
+keyworded = data.flatMap(flatMapLines).map(lambda x: (x,1)).reduceByKey(lambda x,y: x+y).coalesce(1).map(
+    lambda x: &quot;'{classlevel}', '{kw}', {count}&quot;.format(
+        classlevel=x[0].split(',')[0].encode('utf-8'),
+        kw=x[0].split(',')[1].encode('utf-8'),
+        count=x[1]))
+
+# flatmap - split each line into a list of &quot;classname_level,keyword&quot;
+# map - for each keyword, form a tuple (kw,count)
+# reduceby key - sum the keyword counts
+# coalesce - merge the RDD partitions
+# map - form a string &quot;classname_level, keyword, count&quot; from each tuple
+
+keyworded.saveAsTextFile(outfile)
+# write the strings to a file
+</code></pre>
+<p>This does what I wanted. The <code>flatMapLines</code> function splits each line into a list of words. The first word is the power’s classname_level information, so this is prepended to all of the other words. The first map creates a count for each keyword (by classname_level), and reduceByKey sums all of these counts (they are all 1 initally). Coalesce merges all of the rdd partitions. The final map transforms each tuple of the form (‘classname_level,keyword’ count) into a comma seperated string: “‘classname_level’, ‘keyword’, count”. This is the output that I wanted from PySpark, I’ll use pandas/matplotlib to make some plots.</p>
 </div>
 </div>
 
