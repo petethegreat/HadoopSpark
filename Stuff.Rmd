@@ -295,5 +295,22 @@ keyworded.saveAsTextFile(outfile)
 
 ```
 
-This does what I wanted. The ```flatMapLines``` function splits each line into a list of words. The first word is the power's classname_level information, so this is prepended to all of the other words. The first map creates a count for each keyword (by classname_level), and reduceByKey sums all of these counts (they are all 1 initally). Coalesce merges all of the rdd partitions. The final map transforms each tuple of the form ('classname_level,keyword' count) into a comma seperated string: "'classname_level', 'keyword', count". This is the output that I wanted from PySpark, I'll use pandas/matplotlib to make some plots.
+This does what I wanted. The ```flatMapLines``` function splits each line into a list of words. The first word is the power's classname_level information, so this is prepended to all of the other words. The first map creates a count for each keyword (by classname_level), and reduceByKey sums all of these counts (they are all 1 initally). Coalesce merges all of the rdd partitions. The final map transforms each tuple of the form ('classname_level,keyword' count) into a comma seperated string: "'classname_level', 'keyword', count". The first few lines of output are below.
+
+```
+'Artificer_13', 'close', 1
+'Winter_Fury_11', 'encounter', 1
+'Ranger_25', 'martial', 16
+'Shock_Trooper_11', 'weapon', 2
+'Draconic_Antithesis_11', 'encounter', 1
+'Guardian_of_the_Land_12', 'teleportation', 1
+'Radiant_Servant_20', 'standard', 1
+'Monk_15', 'force', 1
+'Psion_7', '10', 8
+'Hoard_Raider_12', 'personal', 1
+
+```
+
+This is the output that I wanted from PySpark, I'll use pandas/matplotlib to make some plots.
+
 
