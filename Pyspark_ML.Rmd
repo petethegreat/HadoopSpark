@@ -16,7 +16,7 @@ This summarises some work I did using PySpark's machine learning (ML) library to
 
 First, the data is read in through spark. A validation set is partitioned off from the training data. This will be used to validate the model (in addtion to cross-validation on the training set), and may be used later to train an ensemble learner.
 
-```{Python,eval=FALSE}
+```{python,eval=FALSE}
     data = spark.read \
         .format("csv") \
         .option("header", "true") \
@@ -29,7 +29,7 @@ First, the data is read in through spark. A validation set is partitioned off fr
 Will take a quick look at the first few rows of data, and the schema.
 
 
-```{Python,eval=FALSE}
+```{python,eval=FALSE}
     train.limit(10).show()
     train.printSchema()
 ```
@@ -69,7 +69,7 @@ Survived is the categorical variable that we wish to predict. `Pclass`, `Sex`, `
 
 A pipeline will be used to process the data. Spark ML classifiers (and regressors) operate on a vector column of features. Categorical variables need to be encoded as "one hot" before they can be included in the feature vector. `Sex` and `Embarked` first need to be indexed, such that the string categories (male/female, C/Q/S) are transformed to integers (0/1/2). There are some missing values in `Embarked`, the indexer (embarkIndexer) keeps these values and treats them as a fourth category (so no assumptions are made about these records). Each of the encoder stages transforms the indexed variable (an integer) to a one hot vector: there is an element in the vector for each observed class, and the category is information is encoded based on which element is equal to 1 (the rest are 0). 
 
-```
+```{python,eval=FALSE}
     # set up transformation pipeline stages
     # index "Sex" column and encode as one hot
     sexIndexer = StringIndexer(

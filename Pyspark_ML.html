@@ -169,7 +169,7 @@ root
 </code></pre>
 <p>Survived is the categorical variable that we wish to predict. <code>Pclass</code>, <code>Sex</code>, <code>Embarked</code> are also categorical, and should be treated appropriately. Cabin seems to contain a lot of missing values, so will be omitted for now. There are also some missing values in Age (and potentially Fare), so these will be imputed.</p>
 <p>A pipeline will be used to process the data. Spark ML classifiers (and regressors) operate on a vector column of features. Categorical variables need to be encoded as “one hot” before they can be included in the feature vector. <code>Sex</code> and <code>Embarked</code> first need to be indexed, such that the string categories (male/female, C/Q/S) are transformed to integers (0/1/2). There are some missing values in <code>Embarked</code>, the indexer (embarkIndexer) keeps these values and treats them as a fourth category (so no assumptions are made about these records). Each of the encoder stages transforms the indexed variable (an integer) to a one hot vector: there is an element in the vector for each observed class, and the category is information is encoded based on which element is equal to 1 (the rest are 0).</p>
-<pre><code>    # set up transformation pipeline stages
+<pre class="python"><code>    # set up transformation pipeline stages
     # index &quot;Sex&quot; column and encode as one hot
     sexIndexer = StringIndexer(
         inputCol='Sex',
