@@ -124,7 +124,11 @@ A pipeline will be used to process the data. Spark ML classifiers (and regressor
 
 ```
 
+## Model training
+
 For prediction, a logistic regression model will be used. 
+
+
 ```{python,eval=FALSE}
     # logistic regression
     # regularisation parameters will be tuned via cross validation
@@ -138,3 +142,91 @@ For prediction, a logistic regression model will be used.
         predictionCol='lr_survivePred',
         rawPredictionCol='lr_rawPrediction')
 ```        
+We are interested in binomial (0/1) classification, so this is passed as the family parameter.
+
+Before training, the pipeline must be assembled. Each of the transformers listed above is used as a pipeline stage, as well as the logistic regression model. 
+
+```{python, eval=FALSE}
+    # Assemble all the components
+    pipestages = [sexIndexer,
+                  sexEncoder,
+                  classEncoder,
+                  embarkIndexer,
+                  embarkEncoder,
+                  ageFareImputer,
+                  ASPFvecAssembler,
+                  ASPFscaler,
+                  featureVecAssembler,
+                  lr
+                  ]
+    # construct a pipeline
+    pipeline = Pipeline(stages=pipestages)
+```
+
+The pipeline encompasses all of the steps that need to be applied to our raw data in order to get a desired result (in this case, a prediction). Some of these pipeline stages are estimators, in that they need to be fit to input data in order for them to learn how to carry out a transformation. The logistic regression model is an obvious example of this, but the indexers, imputer, and scaler are also estimators. For example, sexIndexer needs to see the column of male/female strings before learning to assign 0/1 values accordingly. Fitting the pipeline to the training data (```pipeline.fit(train)```) would pass the data through each stage of the pipeline. Transformer stages would act on the data and estimator stages would be fit, producing trained models that are transformer stages. The ```pipeline.fit()``` method returns a pipelineModel, which consists of all the transformation stages from the original pipeline, with all the estimator stages replaced by trained models. The resulting pipelineModel contains only transformer stages, such that it is ready to act on new data.
+
+Instead of fitting the pipeline at this point, cross-validation will be used to determine the best parameters for the models. A paramGrid is constructed which describes the parameters that are to be tuned, and the values that should be considered. In this case, we're really only interested tuning the logistic regression stage. 
+
+```{python,eval=FALSE}
+
+    # specify parameter grid for cv tuning
+    paramGrid = ParamGridBuilder() \
+        .addGrid(lr.regParam,[0.0,0.01,0.1]) \
+        .addGrid(lr.elasticNetParam, [0.0, 1.0]) \
+        .build()
+```
+The regularisation parameter determines how much high value weights are penalised when fitting the model. The elastic net parameter determines how much of the regularisation is applied to the L1 or L2 norm of the weights (1.0 corresponds to lasso regression, while 0.0 corresponds to ridge regression). High value weights can yield models with large variance.
+
+A BinaryClassificationEvaluator is used to evaluate hyperparameter settings, and determine the best tune. By default, the metric used is the area under the receiver operating characteristic (ROC AUC). Three-fold cross-validation will be used. The training data is split into three folds, and the model is trained on two and evaluate against the third. This is done three times (once for each test fold), and the model performance (the ROC AUC evaluation) is averaged. The parameters that give the best average results are then used to train the model on the entire training data set.
+
+```{python,eval=FALSE}
+    # initialise an evaluator. This uses ROC AUC as a metric by default.
+    BCeval = BinaryClassificationEvaluator(labelCol='Survived',rawPredictionCol=lr.getRawPredictionCol())
+
+    # initialise the cross validator object
+    # will use 3 fold cross validation
+    cv = CrossValidator(estimator=pipeline,estimatorParamMaps=paramGrid,evaluator=BCeval,numFolds=3,seed=1992)
+
+    # Carry out the cross validation and obtain the model with the best performance
+    cvModel = cv.fit(train)
+    # print some performance metrics (these are averaged over the three folds)
+    print('CrossValidation average metrics:')
+    print(cvModel.avgMetrics)
+
+    trained = cvModel.transform(train)
+    trainedEval = BCeval.evaluate(trained)
+    print('best model evaluation on training set = {v:0.4g}'.format(v=trainedEval))
+
+    validation = cvModel.transform(val)
+    # evaluate model on validation set
+    valEval = BCeval.evaluate(validation)
+```
+In this case, our model had a ROC AUC of 0.8509 when applied to the training set, and 0.8777 on the validation set (i.e., data that the model has not been trained on). It should perform reasonably well on the test data. 
+
+The best model (specifically, the entire pipeline formed using the best model) is written to disk, such that it can be retrieved later without needing to be retrained.
+
+```{python,eval=FALSE}
+    print('best model evaluation on validation set = {v:0.4g}'.format(v=valEval))
+    cvModel.bestModel.write().overwrite().save(modelDest)
+```
+
+Finally, the model will predict on the test set. The predictions are then saved (and submitted to Kaggle). The model scores 77.5% on the public leaderboard. 
+```{python,eval=FALSE}
+    test = spark.read \
+        .format("csv") \
+        .option("header", "true") \
+        .option('inferSchema','true') \
+        .load(titanicTestFile) 
+
+    # load the saved model
+    loadedModel = PipelineModel.load(modelFileName)
+    # transform (predict on) the test data
+    predicted = loadedModel.transform(test)
+    # write predictions to file
+    predicted.select(['PassengerId',predicted[modelPredColName].cast('int').alias('Survived')]) \
+        .coalesce(1) \
+        .write.csv(path=predictionFile,header=True,mode='overwrite')
+    print('wrote test predictions to {fd}'.format(fd=predictionFile))
+```
+
+
