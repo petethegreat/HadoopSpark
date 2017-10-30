@@ -220,14 +220,24 @@ The ROC curve can be obtained from a BinaryLogisticRegressionSummary, which is o
 This ROC curve is plotted below
 ```{python}
 import pandas as pd
-import matplotlib.pyplot as plt
+from matplotlib import pyplot as plt
+import matplotlib
+import seaborn as sns
+sns.set(style='darkgrid')
 
-roc_data = pd.read_csv(titanic_lr_ROC.csv)
-plt.plot(roc_data['FPR'],roc_data['TPR'])
-plt.show()
+
+roc_data = pd.read_csv('titanic_lr_ROC.csv')
+plt.plot(roc_data['FPR'][:-2],roc_data['TPR'][:-2],'r-',label='Logistic REgression ROC curve')
+plt.plot([0.0,1.0],[0.0,1.0],linestyle='--',color=sns.xkcd_rgb['dusty green'])
+plt.legend(loc='lower right')
+plt.title('Logistic Regression ROC curve - PySpark ML pipeline')
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.savefig('roc_curve.png')
 
 ```
 
+![ROC curve](roc_curve.png)
 
 The best model (specifically, the entire pipeline formed using the best model) is written to disk, such that it can be retrieved later without needing to be retrained.
 
