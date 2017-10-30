@@ -43,7 +43,7 @@ def PredictTest(
         # cast survived to int
 ############################################################
 
-def fitLRmodel(spark,titanicTrainFile,modelDest):
+def fitLRmodel(spark,titanicTrainFile,modelDest,rocOutput=None):
     # Try a logistic regression first
     # Pipeline stuff
     # We want a pipeline that does the following things:
@@ -182,6 +182,20 @@ def fitLRmodel(spark,titanicTrainFile,modelDest):
     # evaluate model on validation set
     valEval = BCeval.evaluate(validation)
     print('best model evaluation on validation set = {v:0.4g}'.format(v=valEval))
+
+    if rocOutput:
+        # get the summary/evaluation from the validation set
+        # get the last stage of the pipe from the best model found in cv
+        # evaluate returns a BinaryLogisticRegressionSummary
+        # note that validation has already been transformed, we'll only keep the columns needed for evaluation
+
+        summary = cvModel.bestModel.stages[-1].evaluate(validation.select(['features','Survived']))
+
+        # get the roc data
+        rocData = summary.roc
+        rocData.coalesce(1).write.csv(path=rocOutput,header=True,mode='overwrite')
+
+
     cvModel.bestModel.write().overwrite().save(modelDest)
     # model.write.overwrite().save("/tmp/spark-logistic-regression-model")
 ############################################################
@@ -211,12 +225,15 @@ def main():
     titanicTestFile = 'hdfs://localhost:54310/user/hduser/input/titanic_test.csv'
     LRmodelFilename = 'hdfs://localhost:54310/user/hduser/models/titanic_lr'
     predictionFile = 'hdfs://localhost:54310/user/hduser/output/titanic_lr_prediction'
+    rocOutputFile = 'hdfs://localhost:54310/user/hduser/output/titanic_lr_ROC'
 
     # fit (and save) our model
     fitLRmodel(
         spark,
         titanicTrainFile,
-        LRmodelFilename)
+        LRmodelFilename,
+        rocOutput=rocOutputFile
+        )
 
     # load our model, and predict on the test set
     PredictTest(
