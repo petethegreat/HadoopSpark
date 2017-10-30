@@ -203,6 +203,42 @@ A BinaryClassificationEvaluator is used to evaluate hyperparameter settings, and
 ```
 In this case, our model had a ROC AUC of 0.8509 when applied to the training set, and 0.8777 on the validation set (i.e., data that the model has not been trained on). It should perform reasonably well on the test data. 
 
+The ROC curve can be obtained from a BinaryLogisticRegressionSummary, which is obtained by evaluating the LogisticRegressionModel on our validation set. 
+```{python, eval=FALSE}
+        # get the summary/evaluation from the validation set
+        # get the last stage of the pipe from the best model found in cv
+        # evaluate returns a BinaryLogisticRegressionSummary
+        # note that validation has already been transformed, we'll only keep the columns needed for evaluation
+
+        summary = cvModel.bestModel.stages[-1].evaluate(validation.select(['features','Survived']))
+
+        # get the roc data
+        rocData = summary.roc
+        rocData.coalesce(1).write.csv(path=rocOutput,header=True,mode='overwrite')
+```
+
+This ROC curve is plotted below
+```{python}
+import pandas as pd
+from matplotlib import pyplot as plt
+import matplotlib
+import seaborn as sns
+sns.set(style='darkgrid')
+
+
+roc_data = pd.read_csv('titanic_lr_ROC.csv')
+plt.plot(roc_data['FPR'][:-2],roc_data['TPR'][:-2],'r-',label='Logistic REgression ROC curve')
+plt.plot([0.0,1.0],[0.0,1.0],linestyle='--',color=sns.xkcd_rgb['dusty green'])
+plt.legend(loc='lower right')
+plt.title('Logistic Regression ROC curve - PySpark ML pipeline')
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.savefig('roc_curve.png')
+
+```
+
+![ROC curve](roc_curve.png)
+
 The best model (specifically, the entire pipeline formed using the best model) is written to disk, such that it can be retrieved later without needing to be retrained.
 
 ```{python,eval=FALSE}
