@@ -35,7 +35,7 @@ data = sc.textFile(keywordsFile) # rdd of lines
 
 
 keyworded = data.flatMap(flatMapLines).map(lambda x: (x,1)).reduceByKey(lambda x,y: x+y).coalesce(1).map(
-    lambda x: "'{classlevel}', '{kw}', {count}".format(
+    lambda x: "'{classlevel}','{kw}',{count}".format(
         classlevel=x[0].split(',')[0].encode('utf-8'),
         kw=x[0].split(',')[1].encode('utf-8'),
         count=x[1]))
