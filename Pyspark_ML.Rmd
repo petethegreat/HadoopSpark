@@ -10,7 +10,7 @@ output:
 
 
 ## Introduction
-This summarises some work I did using PySpark's machine learning (ML) library to predict survival for the Kaggle Titanic dataset. The data is loaded from a .csv file on hdfs into a spark dataframe, and then run through a spark pipeline that transforms the data and fits a logistic regression model. The output model is then applied to the test set. The Python file in it's entirety can be found [here](https://github.com/petethegreat/HadoopSpark/blob/master/pyspark_Titanic.py), sections of it are described below.
+This summarises some work I did using PySpark's machine learning (ML) library to predict survival for the Kaggle Titanic dataset. The data is loaded from a .csv file on hdfs into a spark dataframe, and then run through a spark pipeline that transforms the data and fits a logistic regression model. The output model is then applied to the test set. The Python file in its entirety can be found [here](https://github.com/petethegreat/HadoopSpark/blob/master/pyspark_Titanic.py), sections of it are described below.
 
 ## Data Cleaning/Transformation
 
